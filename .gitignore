@@ -1,0 +1,82 @@
+# ================================================
+# Browser Lock - Git Ignore
+# ================================================
+
+# Dependencies
+node_modules/
+.pnp/
+.pnp.js
+
+# Build outputs (keep dist if you want to distribute)
+# dist/
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE and Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Testing
+coverage/
+.nyc_output/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# ESLint cache
+.eslintcache
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Debug/Error files (from development)
+eslint_result.json
+lint_errors.txt
+tsc_errors.txt
+
+# Local config
+*.local
+
+# Package manager locks (keep one, usually package-lock.json for npm)
+# yarn.lock
+# pnpm-lock.yaml
+
+# Chrome extension specific
+*.crx
+*.pem
+*.zip
+
+# Build artifacts that shouldn't be committed
+.parcel-cache/
+.turbo/
