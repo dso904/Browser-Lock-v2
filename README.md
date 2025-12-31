@@ -51,25 +51,13 @@ Beautiful dark theme with glowing accents, smooth animations, and intuitive cont
 
 ---
 
-## 📸 Screenshots
-
-<div align="center">
-
-| Lock Screen | Settings Page |
-|:-----------:|:-------------:|
-| ![Lock Screen](https://via.placeholder.com/400x300/0d0d1a/5865F2?text=Lock+Screen) | ![Settings](https://via.placeholder.com/400x300/0d0d1a/9f7aea?text=Settings) |
-
-</div>
-
----
-
 ## 🚀 Installation
 
 ### From Source (Development)
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/browser-lock.git
+   git clone https://github.com/dso908/browser-lock.git
    cd browser-lock
    ```
 
