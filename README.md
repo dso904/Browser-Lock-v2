@@ -57,7 +57,7 @@ Beautiful dark theme with glowing accents, smooth animations, and intuitive cont
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/dso908/browser-lock.git
+   git clone https://github.com/dso904/browser-lock.git
    cd browser-lock
    ```
 
