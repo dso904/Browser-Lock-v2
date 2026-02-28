@@ -176,16 +176,16 @@ export async function unlock(password: string, isRecoveryCode: boolean = false):
             // Reset lock state FIRST (so window guard doesn't block restore)
             await resetLockState();
 
-            // CRITICAL: Create new window or restore previous windows FIRST before closing lock screen
+            // CRITICAL: Restore windows or create new ones FIRST before closing lock screen
             // This ensures Chrome always has a visible window and prevents process termination
-            await restoreAllWindows();
+            const wasSameSession = await restoreAllWindows();
 
             // Now safe to close lock screen (restored/new window already exists)
             await closeLockScreen();
 
-            // Clean up minimized windows ONLY if not in 'restore' mode
-            // In restore mode, windows were already un-minimized by restoreAllWindows()
-            if (settings.autoLock.startState !== 'restore') {
+            // Clean up stray minimized windows only in cross-restart scenario.
+            // In same-session, the user's intentionally-minimized windows are preserved.
+            if (!wasSameSession) {
                 await cleanupMinimizedWindows();
             }
 
@@ -375,6 +375,10 @@ async function closeLockScreen(): Promise<void> {
  * Ensure lock screen is visible (reopen if closed)
  * Includes rate limiting to prevent rapid open/close cycles
  * IMPORTANT: Pauses WindowGuard during operation to prevent interference
+ *
+ * This function both creates/focuses the lock screen AND hides all other
+ * windows. This is critical for browser restart scenarios where Chrome's
+ * default tab is visible before the lock screen appears.
  */
 export async function ensureLockScreenVisible(): Promise<void> {
     // Rate limiting
@@ -403,8 +407,9 @@ export async function ensureLockScreenVisible(): Promise<void> {
                 // Check if window still exists
                 const existingWindow = await chrome.windows.get(windowId);
                 if (existingWindow) {
-                    // Window exists, focus it
+                    // Window exists, focus it and ensure background is hidden
                     await chrome.windows.update(windowId, { focused: true });
+                    await hideAllWindowsExceptLockScreen();
                     return;
                 }
             } catch {
@@ -415,8 +420,9 @@ export async function ensureLockScreenVisible(): Promise<void> {
             }
         }
 
-        // Reopen lock screen
+        // Reopen lock screen and hide everything else
         await openLockScreen();
+        await hideAllWindowsExceptLockScreen();
     } catch (error) {
         console.error('[LockManager] Error ensuring lock screen visible:', error);
     } finally {
@@ -484,28 +490,63 @@ async function clearBrowsingData(options: {
 // chrome.windows.remove(), which prevents Chrome from terminating the profile process.
 
 /**
- * Restore browser windows after successful unlock
- * Handles three modes based on user settings:
- * - 'restore': Un-minimize previously minimized windows (preserves tabs, history, scroll)
- * - 'new_tab': Open a fresh new tab page
- * - 'url': Open a configured URL
+ * Restore browser windows after successful unlock.
+ *
+ * SMART RESTORATION LOGIC:
+ * 1. First, check if there are force-minimized windows from the same session.
+ *    If YES → restore them (the user gets their exact workspace back).
+ * 2. If NO windows exist (browser was closed while locked and reopened),
+ *    fall back to the startState setting:
+ *    - 'restore': Restore any remaining minimized windows (fallback behavior)
+ *    - 'new_tab': Open a fresh new tab page
+ *    - 'url': Open a configured URL
  */
-async function restoreAllWindows(): Promise<void> {
+async function restoreAllWindows(): Promise<boolean> {
     // Pause window guard to prevent it from interfering with window operations
     State.pauseGuard();
 
     try {
-        // Get settings to determine what to open
+        // STEP 1: Try to restore force-minimized windows (same-session scenario).
+        // These are windows that hideAllWindowsExceptLockScreen() minimized
+        // during the current lock session. They still have all the user's tabs.
+        const forceMinimizedIds = State.getForceMinimizedWindowIds();
+        let sameSessionWindowsExist = false;
+
+        if (forceMinimizedIds.length > 0) {
+            // Check if any of these windows actually still exist
+            for (const winId of forceMinimizedIds) {
+                try {
+                    await chrome.windows.get(winId);
+                    sameSessionWindowsExist = true;
+                    break;
+                } catch {
+                    // Window no longer exists
+                }
+            }
+        }
+
+        if (sameSessionWindowsExist) {
+            // SAME-SESSION: The user locked within this browser session.
+            // Their minimized windows are still alive. Restore them.
+            console.log('[LockManager] Same-session unlock: restoring force-minimized windows');
+            await restoreMinimizedWindows();
+            return true;
+        }
+
+        // STEP 2: No same-session windows exist. This means the browser was
+        // closed while locked and reopened. Use the startState config.
+        console.log('[LockManager] Cross-restart unlock: no same-session windows, using startState config');
+        State.clearForceMinimizedWindowIds();
+
         const settings = await getSettings();
         const startState = settings.autoLock.startState;
 
-        console.log(`[LockManager] Restoring windows with mode: ${startState}`);
+        console.log(`[LockManager] Restoring with mode: ${startState}`);
 
         if (startState === 'restore') {
-            // RESTORE MODE: Un-minimize all previously minimized windows
+            // Try to restore any remaining minimized windows (fallback)
             await restoreMinimizedWindows();
         } else if (startState === 'url' && settings.autoLock.startUrl) {
-            // URL MODE: Open configured URL in a new maximized window
             await chrome.windows.create({
                 url: settings.autoLock.startUrl,
                 focused: true,
@@ -513,7 +554,7 @@ async function restoreAllWindows(): Promise<void> {
             });
             console.log(`[LockManager] Opened configured URL: ${settings.autoLock.startUrl}`);
         } else {
-            // NEW TAB MODE (default): Open a fresh new tab page
+            // 'new_tab' mode or fallback
             await chrome.windows.create({
                 url: 'chrome://newtab',
                 focused: true,
@@ -521,14 +562,16 @@ async function restoreAllWindows(): Promise<void> {
             });
             console.log('[LockManager] Opened new tab page');
         }
+
+        return false;
     } catch (error) {
         console.error('[LockManager] Error restoring windows:', error);
-        // Fallback: try to create at least a new tab
         try {
             await chrome.tabs.create({});
         } catch {
             // Give up
         }
+        return false;
     } finally {
         // Resume window guard after a short delay to let windows fully initialize
         setTimeout(() => State.resumeGuard(), 300);
@@ -576,7 +619,7 @@ async function restoreMinimizedWindows(): Promise<void> {
                         restoredCount++;
                         if (!firstWindowId) firstWindowId = win.id;
                         console.log(`[LockManager] Restored minimized window (fallback): ${win.id}`);
-                    } catch { }
+                    } catch { /* Window gone */ }
                 }
             }
         }
@@ -588,7 +631,7 @@ async function restoreMinimizedWindows(): Promise<void> {
         if (firstWindowId) {
             try {
                 await chrome.windows.update(firstWindowId, { focused: true });
-            } catch { }
+            } catch { /* Focus error */ }
         }
 
         if (restoredCount === 0) {

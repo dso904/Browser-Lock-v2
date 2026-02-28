@@ -8,7 +8,7 @@ node_modules/
 .pnp.js
 
 # Build outputs (keep dist if you want to distribute)
-# dist/
+dist/
 
 # Environment files
 .env

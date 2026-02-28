@@ -55,7 +55,9 @@ chrome.runtime.onInstalled.addListener((details) => {
     console.log(`[BrowserLock] onInstalled: ${details.reason}`);
 
     if (details.reason === 'install') {
-        chrome.runtime.openOptionsPage();
+        // First install — open options page in setup mode
+        const optionsUrl = chrome.runtime.getURL('options.html?setup=true');
+        chrome.tabs.create({ url: optionsUrl });
     } else if (details.reason === 'update') {
         console.log(`[BrowserLock] Updated to v${chrome.runtime.getManifest().version}`);
     }

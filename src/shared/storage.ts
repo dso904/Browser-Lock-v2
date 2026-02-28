@@ -58,7 +58,7 @@ export async function updateSetting<K extends keyof Settings>(
 }
 
 // ============================================
-// Lock State (chrome.storage.session - per profile, clears on close)
+// Lock State (chrome.storage.local - persists across browser restarts)
 // ============================================
 
 /**
@@ -66,7 +66,7 @@ export async function updateSetting<K extends keyof Settings>(
  */
 export async function getLockState(): Promise<LockState> {
     try {
-        const result = await chrome.storage.session.get(STORAGE_KEYS.LOCK_STATE);
+        const result = await chrome.storage.local.get(STORAGE_KEYS.LOCK_STATE);
         if (result[STORAGE_KEYS.LOCK_STATE]) {
             const stored = result[STORAGE_KEYS.LOCK_STATE] as Partial<LockState>;
             return { ...DEFAULT_LOCK_STATE, ...stored };
@@ -85,7 +85,7 @@ export async function saveLockState(state: Partial<LockState>): Promise<void> {
     try {
         const current = await getLockState();
         const updated = { ...current, ...state };
-        await chrome.storage.session.set({ [STORAGE_KEYS.LOCK_STATE]: updated });
+        await chrome.storage.local.set({ [STORAGE_KEYS.LOCK_STATE]: updated });
     } catch (error) {
         console.error('[Storage] Failed to save lock state:', error);
         throw error;
@@ -97,7 +97,7 @@ export async function saveLockState(state: Partial<LockState>): Promise<void> {
  */
 export async function resetLockState(): Promise<void> {
     try {
-        await chrome.storage.session.set({ [STORAGE_KEYS.LOCK_STATE]: { ...DEFAULT_LOCK_STATE } });
+        await chrome.storage.local.set({ [STORAGE_KEYS.LOCK_STATE]: { ...DEFAULT_LOCK_STATE } });
     } catch (error) {
         console.error('[Storage] Failed to reset lock state:', error);
         throw error;
@@ -134,6 +134,6 @@ export function onLockStateChange(callback: (newState: LockState) => void): () =
         }
     };
 
-    chrome.storage.session.onChanged.addListener(listener);
-    return () => chrome.storage.session.onChanged.removeListener(listener);
+    chrome.storage.local.onChanged.addListener(listener);
+    return () => chrome.storage.local.onChanged.removeListener(listener);
 }

@@ -229,7 +229,7 @@ async function handleWindowFocusChanged(windowId: number): Promise<void> {
 
         try {
             await chrome.windows.update(windowId, { state: 'minimized' });
-        } catch { }
+        } catch { /* Window gone */ }
 
         try {
             await chrome.windows.update(lockWindowId, { focused: true });
