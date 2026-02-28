@@ -79,7 +79,13 @@ export async function lock(trigger: 'manual' | 'auto' | 'idle' | 'startup'): Pro
         State.pauseGuard();
 
         try {
-            // Update lock state (after pausing guard)
+            // Fix 2: Open lock screen FIRST, THEN persist locked state.
+            // If openLockScreen() fails, we never write locked=true,
+            // preventing the soft-brick scenario where guard blocks all tabs
+            // but no lock screen exists for the user to authenticate.
+            await openLockScreen();
+
+            // Lock screen is confirmed open — NOW safe to persist locked state
             await saveLockState({
                 locked: true,
                 lockedAt: Date.now(),
@@ -87,11 +93,19 @@ export async function lock(trigger: 'manual' | 'auto' | 'idle' | 'startup'): Pro
                 hardLockedUntil: null,
             });
 
-            // Open lock screen window
-            await openLockScreen();
-
-            // Close all other windows so lock screen is the only visible window
+            // Minimize all other windows
             await hideAllWindowsExceptLockScreen();
+        } catch (lockError) {
+            // ROLLBACK: If anything failed, ensure we don't leave a partial lock state
+            console.error('[LockManager] Lock setup failed, rolling back:', lockError);
+            try {
+                await resetLockState();
+                await closeLockScreen();
+            } catch {
+                // Best-effort rollback
+            }
+            State.resumeGuard();
+            return false;
         } finally {
             // Resume window guard after operations complete
             State.resumeGuard();
@@ -522,46 +536,63 @@ async function restoreAllWindows(): Promise<void> {
 }
 
 /**
- * Restore (un-minimize) all minimized windows
- * This preserves the user's previous tabs, history, scroll positions, and form data
+ * Restore (un-minimize) only the windows WE force-minimized during lock (Fix 4).
+ * Windows the user had intentionally minimized before locking are left alone.
  */
 async function restoreMinimizedWindows(): Promise<void> {
     try {
-        const allWindows = await chrome.windows.getAll();
+        const forceMinimizedIds = State.getForceMinimizedWindowIds();
         let restoredCount = 0;
         let firstWindowId: number | null = null;
 
-        for (const win of allWindows) {
-            if (win.id && win.state === 'minimized') {
+        if (forceMinimizedIds.length > 0) {
+            // Restore only the specific windows we force-minimized
+            for (const winId of forceMinimizedIds) {
                 try {
-                    // Restore to normal state (not maximized, to preserve original size)
-                    await chrome.windows.update(win.id, { state: 'normal' });
-                    restoredCount++;
+                    const win = await chrome.windows.get(winId);
+                    if (win && win.state === 'minimized') {
+                        await chrome.windows.update(winId, { state: 'normal' });
+                        restoredCount++;
 
-                    // Track the first restored window to focus it later
-                    if (!firstWindowId) {
-                        firstWindowId = win.id;
+                        if (!firstWindowId) {
+                            firstWindowId = winId;
+                        }
+
+                        console.log(`[LockManager] Restored force-minimized window: ${winId}`);
                     }
-
-                    console.log(`[LockManager] Restored minimized window: ${win.id}`);
                 } catch {
-                    // Window might already be gone, ignore
+                    // Window might no longer exist, skip
+                    console.log(`[LockManager] Force-minimized window ${winId} no longer exists`);
+                }
+            }
+        } else {
+            // Fallback: no tracked IDs (e.g., session storage was lost).
+            // Restore ALL minimized windows as before.
+            const allWindows = await chrome.windows.getAll();
+            for (const win of allWindows) {
+                if (win.id && win.state === 'minimized') {
+                    try {
+                        await chrome.windows.update(win.id, { state: 'normal' });
+                        restoredCount++;
+                        if (!firstWindowId) firstWindowId = win.id;
+                        console.log(`[LockManager] Restored minimized window (fallback): ${win.id}`);
+                    } catch { }
                 }
             }
         }
+
+        // Clear the tracking list
+        State.clearForceMinimizedWindowIds();
 
         // Focus the first restored window
         if (firstWindowId) {
             try {
                 await chrome.windows.update(firstWindowId, { focused: true });
-            } catch {
-                // Ignore focus errors
-            }
+            } catch { }
         }
 
         if (restoredCount === 0) {
-            // No windows to restore, create a new one as fallback
-            console.log('[LockManager] No minimized windows to restore, creating new tab');
+            console.log('[LockManager] No windows to restore, creating new tab');
             await chrome.windows.create({
                 url: 'chrome://newtab',
                 focused: true,
@@ -571,8 +602,7 @@ async function restoreMinimizedWindows(): Promise<void> {
             console.log(`[LockManager] Restored ${restoredCount} window(s)`);
         }
     } catch (error) {
-        console.error('[LockManager] Error restoring minimized windows:', error);
-        // Fallback: create new tab
+        console.error('[LockManager] Error restoring windows:', error);
         await chrome.windows.create({
             url: 'chrome://newtab',
             focused: true,

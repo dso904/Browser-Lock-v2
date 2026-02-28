@@ -12,11 +12,11 @@ import { getLockState } from '../shared/storage';
 import { State } from './state';
 
 /**
- * Minimize all windows except the lock screen (SAFE - keeps process alive)
- * Use this when locking to hide existing content.
- * 
- * IMPORTANT: This uses minimize instead of close to prevent Chrome from
- * terminating the profile process when the last "normal" window is removed.
+ * Minimize all windows except the lock screen (SAFE — keeps process alive).
+ *
+ * Fix 4: Records which window IDs we force-minimized so that on unlock,
+ * only those specific windows are restored — not windows the user had
+ * intentionally minimized before locking.
  */
 export async function hideAllWindowsExceptLockScreen(): Promise<void> {
     try {
@@ -29,21 +29,34 @@ export async function hideAllWindowsExceptLockScreen(): Promise<void> {
         }
 
         const allWindows = await chrome.windows.getAll();
+        const forceMinimizedIds: number[] = [];
 
         for (const window of allWindows) {
             if (window.id && window.id !== lockWindowId) {
+                // Fix 4: Only track windows that are NOT already minimized.
+                // Windows that were already minimized before we locked are the user's
+                // intentional arrangement and should not be restored on unlock.
+                const wasAlreadyMinimized = window.state === 'minimized';
+
                 try {
-                    // MINIMIZE instead of CLOSE to preserve the Chrome process
-                    // Closing the last normal window would terminate the profile
                     await chrome.windows.update(window.id, { state: 'minimized' });
-                    console.log(`[WindowUtils] Minimized window: ${window.id}`);
+
+                    if (!wasAlreadyMinimized) {
+                        forceMinimizedIds.push(window.id);
+                    }
+
+                    console.log(`[WindowUtils] Minimized window: ${window.id} (tracked: ${!wasAlreadyMinimized})`);
                 } catch {
                     // Window might have been closed, ignore
                 }
             }
         }
 
-        // Focus the lock screen to ensure it's visible and in front
+        // Persist which windows WE minimized (Fix 4)
+        State.setForceMinimizedWindowIds(forceMinimizedIds);
+        console.log(`[WindowUtils] Tracked ${forceMinimizedIds.length} force-minimized window(s)`);
+
+        // Focus the lock screen
         try {
             await chrome.windows.update(lockWindowId, { focused: true });
             console.log('[WindowUtils] Lock screen focused');

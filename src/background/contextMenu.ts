@@ -2,34 +2,43 @@
 // Browser Lock - Context Menu
 // ============================================
 // Adds right-click menu item to lock the browser.
+//
+// MV3 COMPLIANCE: Listener registration is separated from menu creation.
+// - registerContextMenuListener() — synchronous, called at top level
+// - createContextMenuItems() — async, called in bootstrap
 
 import { LockManager } from './lockManager';
 
 const MENU_ID = 'browserlock-lock-now';
 
 /**
- * Register context menu items
+ * Register the context menu click listener (SYNCHRONOUS).
+ * Must be called at the top level of the SW script.
  */
-export async function registerContextMenu(): Promise<void> {
-    console.log('[ContextMenu] Registering...');
+export function registerContextMenuListener(): void {
+    chrome.contextMenus.onClicked.addListener(handleMenuClick);
+    console.log('[ContextMenu] Click listener registered');
+}
+
+/**
+ * Create context menu items (ASYNC).
+ * Called during bootstrap after listeners are registered.
+ */
+export async function createContextMenuItems(): Promise<void> {
+    console.log('[ContextMenu] Creating menu items...');
 
     try {
-        // Remove any existing menus first
         await chrome.contextMenus.removeAll();
 
-        // Create "Lock Browser" menu item
         chrome.contextMenus.create({
             id: MENU_ID,
             title: '🔒 Lock Browser',
-            contexts: ['all'], // Show on right-click anywhere
+            contexts: ['all'],
         });
 
-        // Register click handler
-        chrome.contextMenus.onClicked.addListener(handleMenuClick);
-
-        console.log('[ContextMenu] Registered successfully');
+        console.log('[ContextMenu] Menu items created');
     } catch (error) {
-        console.error('[ContextMenu] Registration failed:', error);
+        console.error('[ContextMenu] Menu creation failed:', error);
     }
 }
 
@@ -47,5 +56,6 @@ async function handleMenuClick(
 }
 
 export const ContextMenu = {
-    register: registerContextMenu,
+    registerListener: registerContextMenuListener,
+    createMenuItems: createContextMenuItems,
 };

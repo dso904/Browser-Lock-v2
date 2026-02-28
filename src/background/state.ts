@@ -1,14 +1,14 @@
 // ============================================
 // Browser Lock - Shared State (Session-Persisted)
 // ============================================
-// This module holds shared state variables that are used by both
-// LockManager and WindowGuard. State is persisted to chrome.storage.session
-// so it survives service worker restarts within a browser session.
+// State is persisted to chrome.storage.session so it survives
+// service worker restarts within a browser session.
 //
 // ARCHITECTURE:
 // - Local cache variables provide synchronous reads (hot path)
 // - All writes go to both cache AND chrome.storage.session
-// - State.initialize() rehydrates cache from storage + validates against live windows
+// - State.initialize() rehydrates cache from storage + validates windows
+// - State.waitForReady() lets event handlers await initialization
 //
 // IMPORTANT: This file should NOT import from lockManager or windowGuard
 // to prevent circular dependencies.
@@ -21,87 +21,99 @@ let lockScreenWindowId: number | null = null;
 let isWindowGuardPaused = false;
 let isShuttingDown = false;
 
+// ── Initialization Promise ───────────────────
+// Event handlers await this before processing to ensure state is hydrated.
+let initPromise: Promise<void> | null = null;
+
 // ── Session Storage Shape ────────────────────
 interface SwState {
     lockScreenWindowId: number | null;
     isWindowGuardPaused: boolean;
     isShuttingDown: boolean;
+    /** Window IDs that we force-minimized during lock (Fix 4) */
+    forceMinimizedWindowIds: number[];
 }
 
 /**
  * Persist the current cache to session storage (fire-and-forget).
- * We don't await this in hot paths to avoid blocking the event loop.
  */
 function persistToSession(): void {
     const data: SwState = {
         lockScreenWindowId,
         isWindowGuardPaused,
         isShuttingDown,
+        forceMinimizedWindowIds: forceMinimizedWindowIds,
     };
     chrome.storage.session.set({ [SESSION_KEY]: data }).catch((err) => {
         console.error('[State] Failed to persist to session:', err);
     });
 }
 
+// ── Force-Minimized Window IDs (Fix 4) ──────
+let forceMinimizedWindowIds: number[] = [];
+
 /**
- * Shared state accessors
- * Both LockManager and WindowGuard import from this module
- * to ensure they always see the same values.
- *
- * Reads are synchronous (from cache).
- * Writes update cache AND persist to session storage.
+ * Core initialization logic.
  */
-export const State = {
-    // ── Initialization (call once at SW boot) ──
+async function doInitialize(): Promise<void> {
+    try {
+        const result = await chrome.storage.session.get(SESSION_KEY);
+        const stored = result[SESSION_KEY] as SwState | undefined;
 
-    /**
-     * Rehydrate state from chrome.storage.session and validate
-     * that the stored lock screen window still exists.
-     * Must be called at the top of bootstrap() before any other module reads state.
-     */
-    async initialize(): Promise<void> {
-        try {
-            const result = await chrome.storage.session.get(SESSION_KEY);
-            const stored = result[SESSION_KEY] as SwState | undefined;
+        if (stored) {
+            lockScreenWindowId = stored.lockScreenWindowId;
+            isWindowGuardPaused = stored.isWindowGuardPaused;
+            isShuttingDown = stored.isShuttingDown;
+            forceMinimizedWindowIds = stored.forceMinimizedWindowIds || [];
 
-            if (stored) {
-                lockScreenWindowId = stored.lockScreenWindowId;
-                isWindowGuardPaused = stored.isWindowGuardPaused;
-                isShuttingDown = stored.isShuttingDown;
+            console.log(`[State] Rehydrated: windowId=${lockScreenWindowId}, guardPaused=${isWindowGuardPaused}, shuttingDown=${isShuttingDown}, minimized=${forceMinimizedWindowIds.length}`);
 
-                console.log(`[State] Rehydrated from session: windowId=${lockScreenWindowId}, guardPaused=${isWindowGuardPaused}, shuttingDown=${isShuttingDown}`);
-
-                // Validate that the stored window ID still exists
-                if (lockScreenWindowId !== null) {
-                    try {
-                        await chrome.windows.get(lockScreenWindowId);
-                        console.log(`[State] Lock screen window ${lockScreenWindowId} confirmed alive`);
-                    } catch {
-                        // Window no longer exists — clear it
-                        console.log(`[State] Lock screen window ${lockScreenWindowId} no longer exists, clearing`);
-                        lockScreenWindowId = null;
-                        persistToSession();
-                    }
-                }
-
-                // If we were shutting down but the SW restarted, clear the flag
-                // (the shutdown either completed or was interrupted, either way reset)
-                if (isShuttingDown) {
-                    console.log('[State] Clearing stale shutdown flag from previous SW instance');
-                    isShuttingDown = false;
+            // Validate that the stored window ID still exists
+            if (lockScreenWindowId !== null) {
+                try {
+                    await chrome.windows.get(lockScreenWindowId);
+                    console.log(`[State] Lock screen window ${lockScreenWindowId} confirmed alive`);
+                } catch {
+                    console.log(`[State] Lock screen window ${lockScreenWindowId} no longer exists, clearing`);
+                    lockScreenWindowId = null;
                     persistToSession();
                 }
-            } else {
-                console.log('[State] No session state found, using defaults');
-
-                // Try to discover an existing lock screen via live windows
-                await reconstructFromLiveWindows();
             }
-        } catch (error) {
-            console.error('[State] Failed to initialize from session:', error);
-            // Try window reconstruction as fallback
+
+            // Clear stale shutdown flag from previous SW instance
+            if (isShuttingDown) {
+                console.log('[State] Clearing stale shutdown flag');
+                isShuttingDown = false;
+                persistToSession();
+            }
+        } else {
+            console.log('[State] No session state found, using defaults');
             await reconstructFromLiveWindows();
         }
+    } catch (error) {
+        console.error('[State] Failed to initialize from session:', error);
+        await reconstructFromLiveWindows();
+    }
+}
+
+export const State = {
+    /**
+     * Start initialization. Idempotent — repeated calls return the same promise.
+     * Call this at the top level of the SW (non-awaited) so it begins immediately.
+     */
+    initialize(): Promise<void> {
+        if (!initPromise) {
+            initPromise = doInitialize();
+        }
+        return initPromise;
+    },
+
+    /**
+     * Await this in event handlers to ensure state is hydrated before processing.
+     * If initialize() hasn't been called yet, resolves immediately (graceful fallback).
+     */
+    waitForReady(): Promise<void> {
+        return initPromise || Promise.resolve();
     },
 
     // ── Lock Screen Window ID ──
@@ -139,11 +151,25 @@ export const State = {
         console.log(`[State] Shutting down: ${value}`);
         persistToSession();
     },
+
+    // ── Force-Minimized Window IDs (Fix 4) ──
+
+    getForceMinimizedWindowIds: (): number[] => [...forceMinimizedWindowIds],
+
+    setForceMinimizedWindowIds: (ids: number[]): void => {
+        forceMinimizedWindowIds = ids;
+        persistToSession();
+    },
+
+    clearForceMinimizedWindowIds: (): void => {
+        forceMinimizedWindowIds = [];
+        persistToSession();
+    },
 };
 
 /**
- * Attempt to discover an existing lock screen window by scanning all open windows.
- * Looks for a window whose tab URL matches the lock screen extension page.
+ * Discover an existing lock screen window by scanning all open windows.
+ * Only accepts windows with type === 'popup' to prevent spoofing (Fix 3).
  */
 async function reconstructFromLiveWindows(): Promise<void> {
     try {
@@ -151,11 +177,12 @@ async function reconstructFromLiveWindows(): Promise<void> {
         const allWindows = await chrome.windows.getAll({ populate: true });
 
         for (const win of allWindows) {
-            if (win.id && win.tabs) {
+            // Fix 3: MUST be a popup window, not a regular tab
+            if (win.id && win.type === 'popup' && win.tabs) {
                 for (const tab of win.tabs) {
                     if (tab.url?.startsWith(lockScreenUrl)) {
                         lockScreenWindowId = win.id;
-                        console.log(`[State] Reconstructed lock screen window ID from live windows: ${win.id}`);
+                        console.log(`[State] Reconstructed lock screen window ID from live windows: ${win.id} (type: popup)`);
                         persistToSession();
                         return;
                     }
@@ -163,13 +190,13 @@ async function reconstructFromLiveWindows(): Promise<void> {
             }
         }
 
-        console.log('[State] No lock screen window found in live windows');
+        console.log('[State] No lock screen popup found in live windows');
     } catch (error) {
         console.error('[State] Failed to reconstruct from live windows:', error);
     }
 }
 
-// Also export individual functions for convenience
+// Convenience exports
 export const getLockScreenWindowId = State.getLockScreenWindowId;
 export const setLockScreenWindowId = State.setLockScreenWindowId;
 export const isGuardPaused = State.isGuardPaused;

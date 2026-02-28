@@ -2,11 +2,17 @@
 // Browser Lock - Background Service Worker
 // ============================================
 // Main entry point for the extension's background logic.
-// Bootstraps all modules and registers event listeners.
+//
+// MV3 COMPLIANCE (Fix 1):
+// All Chrome event listeners are registered SYNCHRONOUSLY at the top level
+// of this module — before any `await`. This ensures Chrome never discards
+// a wake-up event because listeners weren't registered in the first tick.
+//
+// Event handlers that need state call `await State.waitForReady()` internally.
 
 import { getSettings, getLockState } from '../shared/storage';
 import { LockManager } from './lockManager';
-import { WindowGuard, pauseWindowGuard } from './windowGuard';
+import { WindowGuard } from './windowGuard';
 import { IdleHandler } from './idleHandler';
 import { ContextMenu } from './contextMenu';
 import { MessageHandler } from './messageHandler';
@@ -15,18 +21,72 @@ import { State } from './state';
 console.log('[BrowserLock] Service Worker starting...');
 
 // ============================================
-// Bootstrap
+// PHASE 1: Synchronous listener registration
 // ============================================
+// MV3 requires all Chrome event listeners to be registered in the
+// first synchronous execution of the script. Async initialization
+// happens AFTER, and handlers await it internally.
+
+// Start state rehydration immediately (non-blocking)
+State.initialize();
+
+// Register ALL Chrome event listeners synchronously
+WindowGuard.register();        // tabs.onCreated, windows.onCreated/onRemoved/onFocusChanged
+MessageHandler.register();     // runtime.onMessage
+ContextMenu.registerListener(); // contextMenus.onClicked (menu creation is async, in bootstrap)
+
+// Keyboard shortcut — registered inline here (synchronous)
+chrome.commands.onCommand.addListener(async (command) => {
+    await State.waitForReady();
+    console.log(`[BrowserLock] Command received: ${command}`);
+
+    if (command === 'lock_browser') {
+        const settings = await getSettings();
+        if (settings.shortcutLock.active) {
+            await LockManager.lock('manual');
+        } else {
+            console.log('[BrowserLock] Shortcut disabled');
+        }
+    }
+});
+
+// Extension lifecycle (already synchronous)
+chrome.runtime.onInstalled.addListener((details) => {
+    console.log(`[BrowserLock] onInstalled: ${details.reason}`);
+
+    if (details.reason === 'install') {
+        chrome.runtime.openOptionsPage();
+    } else if (details.reason === 'update') {
+        console.log(`[BrowserLock] Updated to v${chrome.runtime.getManifest().version}`);
+    }
+});
+
+chrome.runtime.onStartup.addListener(async () => {
+    console.log('[BrowserLock] onStartup');
+    await State.waitForReady();
+
+    const settings = await getSettings();
+    if (settings.autoLock.active && settings.passwordHash) {
+        console.log('[BrowserLock] Auto-lock on startup enabled');
+        await LockManager.lock('startup');
+    }
+});
+
+chrome.runtime.setUninstallURL('https://example.com/uninstall-feedback');
+
+// ============================================
+// PHASE 2: Async bootstrap
+// ============================================
+// Runs after listeners are registered. Handles state-dependent setup
+// that doesn't need to be synchronous.
 
 async function bootstrap(): Promise<void> {
     console.log('[BrowserLock] Bootstrapping...');
 
     try {
-        // CRITICAL: Rehydrate shared state from session storage FIRST
-        // This recovers lockScreenWindowId, guard pause state, etc. after SW restart
-        await State.initialize();
+        // Wait for state to be fully rehydrated
+        await State.waitForReady();
 
-        // Load current state
         const settings = await getSettings();
         const lockState = await getLockState();
 
@@ -34,31 +94,15 @@ async function bootstrap(): Promise<void> {
         console.log('[BrowserLock] Password set:', !!settings.passwordHash);
         console.log('[BrowserLock] Currently locked:', lockState.locked);
 
-        // Register modules that don't interfere with windows
-        await ContextMenu.register();
-        MessageHandler.register();
-
-        // CRITICAL FIX: If locked, PAUSE the guard BEFORE registering it.
-        // This prevents it from killing the startup tab while we prepare the lock screen.
-        // The guard will be resumed inside ensureLockScreenVisible() after the lock screen is ready.
-        if (lockState.locked) {
-            console.log('[BrowserLock] Locked on startup - pausing guard for safe initialization');
-            pauseWindowGuard();
-        }
-
-        // Now safe to register the WindowGuard
-        WindowGuard.register();
+        // Create context menu items (the listener is already registered above)
+        await ContextMenu.createMenuItems();
 
         // Register idle handler if enabled
         if (settings.idleMode.active) {
             await IdleHandler.register();
         }
 
-        // Register keyboard shortcut handler
-        registerShortcutHandler();
-
-        // If browser was locked before service worker restart, restore lock screen
-        // Note: ensureLockScreenVisible() will resume the WindowGuard after completing
+        // If browser was locked before SW restart, restore lock screen
         if (lockState.locked) {
             console.log('[BrowserLock] Restoring lock from previous state');
             await LockManager.ensureLockScreenVisible();
@@ -70,66 +114,7 @@ async function bootstrap(): Promise<void> {
     }
 }
 
-
-// ============================================
-// Keyboard Shortcut Handler
-// ============================================
-
-function registerShortcutHandler(): void {
-    chrome.commands.onCommand.addListener(async (command) => {
-        console.log(`[BrowserLock] Command received: ${command}`);
-
-        if (command === 'lock_browser') {
-            const settings = await getSettings();
-
-            if (settings.shortcutLock.active) {
-                await LockManager.lock('manual');
-            } else {
-                console.log('[BrowserLock] Shortcut disabled');
-            }
-        }
-    });
-
-    console.log('[BrowserLock] Shortcut handler registered');
-}
-
-// ============================================
-// Extension Lifecycle Events
-// ============================================
-
-// On install
-chrome.runtime.onInstalled.addListener((details) => {
-    console.log(`[BrowserLock] onInstalled: ${details.reason}`);
-
-    if (details.reason === 'install') {
-        // First install - open options page
-        chrome.runtime.openOptionsPage();
-    } else if (details.reason === 'update') {
-        // Update - could show changelog
-        console.log(`[BrowserLock] Updated to v${chrome.runtime.getManifest().version}`);
-    }
-});
-
-// On browser startup
-chrome.runtime.onStartup.addListener(async () => {
-    console.log('[BrowserLock] onStartup');
-
-    const settings = await getSettings();
-
-    if (settings.autoLock.active && settings.passwordHash) {
-        console.log('[BrowserLock] Auto-lock on startup enabled');
-        await LockManager.lock('startup');
-    }
-});
-
-// Set uninstall URL (optional)
-chrome.runtime.setUninstallURL('https://example.com/uninstall-feedback');
-
-// ============================================
-// Start Bootstrap
-// ============================================
-
 bootstrap();
 
-// Export for potential debugging
+// Export for debugging
 export { LockManager, WindowGuard, IdleHandler };
