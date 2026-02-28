@@ -1,5 +1,5 @@
 // ============================================
-// Idle Mode Settings Section (Futuristic Design)
+// Idle Mode Settings Section (NEXUS PROTOCOL)
 // ============================================
 
 import { SectionCard, ToggleSwitch, Slider } from '../components';
@@ -61,11 +61,13 @@ export function IdleModeSettings({ settings, onSave }: IdleModeSettingsProps) {
                     <div style={{
                         marginTop: '1rem',
                         padding: '0.75rem 1rem',
-                        background: 'rgba(88, 101, 242, 0.1)',
-                        border: '1px solid rgba(88, 101, 242, 0.2)',
-                        borderRadius: '8px',
-                        color: 'var(--color-text-secondary)',
-                        fontSize: '0.875rem'
+                        background: 'rgba(0, 240, 255, 0.05)',
+                        border: '1px solid rgba(0, 240, 255, 0.12)',
+                        borderRadius: '10px',
+                        color: 'var(--nx-text-dim)',
+                        fontFamily: 'var(--nx-font-body)',
+                        fontSize: '0.875rem',
+                        letterSpacing: '0.02em',
                     }}>
                         💡 <strong>Tip:</strong> Idle lock won't trigger if audio/video is playing.
                     </div>

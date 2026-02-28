@@ -1,5 +1,5 @@
 // ============================================
-// General Settings Section (Futuristic Design)
+// General Settings Section (NEXUS PROTOCOL)
 // ============================================
 
 import { SectionCard, Select } from '../components';

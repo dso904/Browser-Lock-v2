@@ -1,5 +1,5 @@
 // ============================================
-// Shared UI Components for Settings (Futuristic Design)
+// NEXUS PROTOCOL — Cinematic UI Components
 // ============================================
 
 import type { ReactNode } from 'react';
@@ -63,9 +63,20 @@ export function ToggleSwitch({ label, description, checked, onChange, disabled }
     return (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem 0' }}>
             <div>
-                <span style={{ color: 'var(--color-text-primary)', fontWeight: 500 }}>{label}</span>
+                <span style={{
+                    color: 'var(--nx-text)',
+                    fontFamily: 'var(--nx-font-body)',
+                    fontWeight: 600,
+                    letterSpacing: '0.03em',
+                }}>{label}</span>
                 {description && (
-                    <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.875rem', marginTop: '0.25rem' }}>{description}</p>
+                    <p style={{
+                        color: 'var(--nx-text-dim)',
+                        fontFamily: 'var(--nx-font-body)',
+                        fontSize: '0.8125rem',
+                        marginTop: '0.25rem',
+                        letterSpacing: '0.02em',
+                    }}>{description}</p>
                 )}
             </div>
             <button
@@ -94,9 +105,20 @@ export function YesNoToggle({ label, description, value, onChange, disabled }: Y
     return (
         <div style={{ marginBottom: '1rem' }}>
             <div style={{ marginBottom: '0.75rem' }}>
-                <span style={{ color: 'var(--color-text-primary)', fontWeight: 500 }}>{label}</span>
+                <span style={{
+                    color: 'var(--nx-text)',
+                    fontFamily: 'var(--nx-font-body)',
+                    fontWeight: 600,
+                    letterSpacing: '0.03em',
+                }}>{label}</span>
                 {description && (
-                    <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.875rem', marginTop: '0.25rem' }}>{description}</p>
+                    <p style={{
+                        color: 'var(--nx-text-dim)',
+                        fontFamily: 'var(--nx-font-body)',
+                        fontSize: '0.8125rem',
+                        marginTop: '0.25rem',
+                        letterSpacing: '0.02em',
+                    }}>{description}</p>
                 )}
             </div>
             <div className="toggle-group">
@@ -141,8 +163,17 @@ export function Slider({ label, value, min, max, step = 1, unit = '', onChange, 
         return (
             <div style={{ marginBottom: '1rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                    <span style={{ color: 'var(--color-text-primary)', fontWeight: 500 }}>{label}</span>
-                    <span style={{ color: 'var(--color-primary)', fontFamily: 'Monaco, Consolas, monospace' }}>
+                    <span style={{
+                        color: 'var(--nx-text)',
+                        fontFamily: 'var(--nx-font-body)',
+                        fontWeight: 600,
+                        letterSpacing: '0.03em',
+                    }}>{label}</span>
+                    <span style={{
+                        color: 'var(--nx-cyan)',
+                        fontFamily: 'var(--nx-font-mono)',
+                        textShadow: '0 0 6px var(--nx-cyan-glow)',
+                    }}>
                         {value}{unit}
                     </span>
                 </div>
@@ -165,8 +196,17 @@ export function Slider({ label, value, min, max, step = 1, unit = '', onChange, 
     return (
         <div style={{ padding: '0.5rem 0' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                <span style={{ color: 'var(--color-text-primary)', fontWeight: 500 }}>{label}</span>
-                <span style={{ color: 'var(--color-primary)', fontFamily: 'Monaco, Consolas, monospace' }}>
+                <span style={{
+                    color: 'var(--nx-text)',
+                    fontFamily: 'var(--nx-font-body)',
+                    fontWeight: 600,
+                    letterSpacing: '0.03em',
+                }}>{label}</span>
+                <span style={{
+                    color: 'var(--nx-cyan)',
+                    fontFamily: 'var(--nx-font-mono)',
+                    textShadow: '0 0 6px var(--nx-cyan-glow)',
+                }}>
                     {value}{unit}
                 </span>
             </div>
@@ -180,16 +220,26 @@ export function Slider({ label, value, min, max, step = 1, unit = '', onChange, 
                 disabled={disabled}
                 style={{
                     width: '100%',
-                    height: '6px',
-                    background: 'var(--color-bg-input)',
-                    borderRadius: '3px',
+                    height: '4px',
+                    background: 'linear-gradient(90deg, var(--nx-cyan), var(--nx-magenta))',
+                    borderRadius: '2px',
                     appearance: 'none',
+                    WebkitAppearance: 'none',
                     cursor: disabled ? 'not-allowed' : 'pointer',
                     opacity: disabled ? 0.5 : 1,
-                    accentColor: 'var(--color-primary)'
+                    accentColor: 'var(--nx-cyan)',
+                    boxShadow: '0 0 6px var(--nx-cyan-glow)',
                 }}
             />
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
+            <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                fontSize: '0.6875rem',
+                color: 'var(--nx-text-muted)',
+                fontFamily: 'var(--nx-font-mono)',
+                marginTop: '0.375rem',
+                letterSpacing: '0.05em',
+            }}>
                 <span>{min}{unit}</span>
                 <span>{max}{unit}</span>
             </div>
@@ -217,7 +267,14 @@ interface SelectProps {
 export function Select({ label, value, options, onChange, disabled }: SelectProps) {
     return (
         <div style={{ marginBottom: '1rem' }}>
-            <label style={{ display: 'block', color: 'var(--color-text-primary)', fontWeight: 500, marginBottom: '0.5rem' }}>
+            <label style={{
+                display: 'block',
+                color: 'var(--nx-text)',
+                fontFamily: 'var(--nx-font-body)',
+                fontWeight: 600,
+                letterSpacing: '0.03em',
+                marginBottom: '0.5rem',
+            }}>
                 {label}
             </label>
             <select
@@ -252,7 +309,14 @@ interface TextInputProps {
 export function TextInput({ label, value, placeholder, type = 'text', onChange, disabled }: TextInputProps) {
     return (
         <div style={{ marginBottom: '1rem' }}>
-            <label style={{ display: 'block', color: 'var(--color-text-primary)', fontWeight: 500, marginBottom: '0.5rem' }}>
+            <label style={{
+                display: 'block',
+                color: 'var(--nx-text)',
+                fontFamily: 'var(--nx-font-body)',
+                fontWeight: 600,
+                letterSpacing: '0.03em',
+                marginBottom: '0.5rem',
+            }}>
                 {label}
             </label>
             <input
@@ -264,14 +328,25 @@ export function TextInput({ label, value, placeholder, type = 'text', onChange, 
                 style={{
                     width: '100%',
                     padding: '0.75rem 1rem',
-                    background: 'var(--color-bg-card)',
-                    border: '1px solid var(--color-border)',
-                    borderRadius: '8px',
-                    color: 'var(--color-text-primary)',
+                    background: 'rgba(10, 0, 32, 0.6)',
+                    border: '1px solid var(--nx-border)',
+                    borderRadius: '10px',
+                    color: 'var(--nx-text-bright)',
+                    fontFamily: 'var(--nx-font-body)',
                     fontSize: '0.9375rem',
                     outline: 'none',
-                    transition: 'border-color 0.2s',
-                    opacity: disabled ? 0.5 : 1
+                    backdropFilter: 'blur(10px)',
+                    transition: 'all 0.3s',
+                    opacity: disabled ? 0.5 : 1,
+                    letterSpacing: '0.02em',
+                }}
+                onFocus={(e) => {
+                    e.target.style.borderColor = 'var(--nx-cyan)';
+                    e.target.style.boxShadow = '0 0 12px var(--nx-cyan-glow)';
+                }}
+                onBlur={(e) => {
+                    e.target.style.borderColor = 'var(--nx-border)';
+                    e.target.style.boxShadow = 'none';
                 }}
             />
         </div>
@@ -304,9 +379,20 @@ export function NumberInput({ label, description, value, min = 0, max = 100, onC
     return (
         <div style={{ marginBottom: '1rem' }}>
             <div style={{ marginBottom: '0.5rem' }}>
-                <span style={{ color: 'var(--color-text-primary)', fontWeight: 500 }}>{label}</span>
+                <span style={{
+                    color: 'var(--nx-text)',
+                    fontFamily: 'var(--nx-font-body)',
+                    fontWeight: 600,
+                    letterSpacing: '0.03em',
+                }}>{label}</span>
                 {description && (
-                    <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.875rem', marginTop: '0.25rem' }}>{description}</p>
+                    <p style={{
+                        color: 'var(--nx-text-dim)',
+                        fontFamily: 'var(--nx-font-body)',
+                        fontSize: '0.8125rem',
+                        marginTop: '0.25rem',
+                        letterSpacing: '0.02em',
+                    }}>{description}</p>
                 )}
             </div>
             <div className="number-input" style={{ width: 'fit-content', minWidth: '120px' }}>
@@ -344,24 +430,42 @@ export function Checkbox({ label, checked, onChange, disabled }: CheckboxProps) 
             display: 'flex',
             alignItems: 'center',
             gap: '0.75rem',
-            padding: '0.25rem 0',
+            padding: '0.375rem 0',
             cursor: disabled ? 'not-allowed' : 'pointer',
-            opacity: disabled ? 0.5 : 1
+            opacity: disabled ? 0.5 : 1,
         }}>
+            <div style={{
+                width: 20,
+                height: 20,
+                borderRadius: 5,
+                border: `1.5px solid ${checked ? 'var(--nx-cyan)' : 'var(--nx-border)'}`,
+                background: checked ? 'rgba(0, 240, 255, 0.12)' : 'rgba(10, 0, 32, 0.6)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.3s',
+                boxShadow: checked ? '0 0 8px var(--nx-cyan-glow)' : 'none',
+                flexShrink: 0,
+            }}>
+                {checked && (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--nx-cyan)" strokeWidth="3">
+                        <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                )}
+            </div>
             <input
                 type="checkbox"
                 checked={checked}
                 onChange={(e) => onChange(e.target.checked)}
                 disabled={disabled}
-                style={{
-                    width: '18px',
-                    height: '18px',
-                    background: 'var(--color-bg-card)',
-                    borderRadius: '4px',
-                    accentColor: 'var(--color-primary)'
-                }}
+                style={{ display: 'none' }}
             />
-            <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.9375rem' }}>{label}</span>
+            <span style={{
+                color: 'var(--nx-text-dim)',
+                fontFamily: 'var(--nx-font-body)',
+                fontSize: '0.9375rem',
+                letterSpacing: '0.02em',
+            }}>{label}</span>
         </label>
     );
 }
@@ -381,19 +485,22 @@ interface ButtonProps {
 export function Button({ children, variant = 'primary', onClick, disabled, type = 'button' }: ButtonProps) {
     const variants = {
         primary: {
-            background: 'var(--gradient-primary)',
-            color: 'white',
-            border: 'none'
+            background: 'var(--nx-grad-primary)',
+            color: 'var(--nx-text-bright)',
+            border: '1px solid rgba(0, 240, 255, 0.2)',
+            boxShadow: '0 0 15px rgba(0, 240, 255, 0.1)',
         },
         secondary: {
-            background: 'var(--color-bg-input)',
-            color: 'var(--color-text-primary)',
-            border: '1px solid var(--color-border)'
+            background: 'var(--nx-glass)',
+            color: 'var(--nx-text)',
+            border: '1px solid var(--nx-glass-border)',
+            boxShadow: 'none',
         },
         danger: {
-            background: 'rgba(239, 68, 68, 0.2)',
-            color: '#f87171',
-            border: '1px solid rgba(239, 68, 68, 0.3)'
+            background: 'rgba(255, 51, 102, 0.1)',
+            color: 'var(--nx-error)',
+            border: '1px solid rgba(255, 51, 102, 0.2)',
+            boxShadow: '0 0 10px var(--nx-error-glow)',
         }
     };
 
@@ -406,12 +513,16 @@ export function Button({ children, variant = 'primary', onClick, disabled, type 
             disabled={disabled}
             style={{
                 padding: '0.75rem 1.5rem',
-                borderRadius: '8px',
+                borderRadius: '10px',
+                fontFamily: 'var(--nx-font-display)',
                 fontWeight: 600,
-                fontSize: '0.9375rem',
+                fontSize: '0.8rem',
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase' as const,
                 cursor: disabled ? 'not-allowed' : 'pointer',
-                transition: 'all 0.2s',
-                opacity: disabled ? 0.5 : 1,
+                transition: 'all 0.3s',
+                opacity: disabled ? 0.4 : 1,
+                backdropFilter: 'blur(10px)',
                 ...style
             }}
         >
@@ -421,7 +532,7 @@ export function Button({ children, variant = 'primary', onClick, disabled, type 
 }
 
 // ============================================
-// Toggle Button Group (Clear/Don't Clear style)
+// Toggle Button Group
 // ============================================
 
 interface ToggleButtonGroupProps {
@@ -437,9 +548,20 @@ export function ToggleButtonGroup({ label, description, options, value, onChange
     return (
         <div style={{ marginBottom: '1rem' }}>
             <div style={{ marginBottom: '0.5rem' }}>
-                <span style={{ color: 'var(--color-text-primary)', fontWeight: 500 }}>{label}</span>
+                <span style={{
+                    color: 'var(--nx-text)',
+                    fontFamily: 'var(--nx-font-body)',
+                    fontWeight: 600,
+                    letterSpacing: '0.03em',
+                }}>{label}</span>
                 {description && (
-                    <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.875rem', marginTop: '0.25rem' }}>{description}</p>
+                    <p style={{
+                        color: 'var(--nx-text-dim)',
+                        fontFamily: 'var(--nx-font-body)',
+                        fontSize: '0.8125rem',
+                        marginTop: '0.25rem',
+                        letterSpacing: '0.02em',
+                    }}>{description}</p>
                 )}
             </div>
             <div className="toggle-group">

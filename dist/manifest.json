@@ -1,0 +1,38 @@
+{
+    "manifest_version": 3,
+    "name": "Browser Lock",
+    "short_name": "BrowserLock",
+    "description": "Lock your browser with a password to protect your privacy",
+    "version": "1.0.0",
+    "author": "Browser Lock Team",
+    "permissions": [
+        "storage",
+        "tabs",
+        "windows",
+        "idle",
+        "contextMenus",
+        "notifications"
+    ],
+    "optional_permissions": [
+        "browsingData",
+        "background"
+    ],
+    "action": {
+        "default_popup": "popup.html",
+        "default_title": "Browser Lock"
+    },
+    "options_page": "options.html",
+    "background": {
+        "service_worker": "background.js",
+        "type": "module"
+    },
+    "commands": {
+        "lock_browser": {
+            "suggested_key": {
+                "default": "Ctrl+M",
+                "mac": "Command+M"
+            },
+            "description": "Lock Browser"
+        }
+    }
+}

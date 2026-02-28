@@ -1,5 +1,5 @@
 // ============================================
-// Quick Lock / Shortcut Settings Section (Futuristic Design)
+// Quick Lock / Shortcut Settings Section (NEXUS PROTOCOL)
 // ============================================
 
 import { SectionCard, ShortcutDisplay } from '../components';
@@ -37,16 +37,20 @@ export function ShortcutSettings({ settings, onSave }: ShortcutSettingsProps) {
             {shortcutLock.active && (
                 <div>
                     <h4 style={{
-                        color: 'var(--color-text-primary)',
+                        color: 'var(--nx-text-bright)',
+                        fontFamily: 'var(--nx-font-body)',
                         fontWeight: 600,
                         fontSize: '1rem',
+                        letterSpacing: '0.03em',
                         marginBottom: '0.5rem'
                     }}>
                         Combination
                     </h4>
                     <p style={{
-                        color: 'var(--color-text-secondary)',
+                        color: 'var(--nx-text-dim)',
+                        fontFamily: 'var(--nx-font-body)',
                         fontSize: '0.875rem',
+                        letterSpacing: '0.02em',
                         marginBottom: '1rem'
                     }}>
                         The keyboard command you will use to lock your browser within 1 second if needed.

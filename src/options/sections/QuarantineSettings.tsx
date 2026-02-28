@@ -1,5 +1,5 @@
 // ============================================
-// Quarantine Mode Settings Section (Futuristic Design)
+// Quarantine Mode Settings Section (NEXUS PROTOCOL)
 // ============================================
 
 import { useState } from 'react';
@@ -113,16 +113,20 @@ export function QuarantineSettings({ settings, onSave, onShowMessage }: Quaranti
                     {/* Locked Duration Title */}
                     <div style={{ marginBottom: '1.5rem' }}>
                         <h3 style={{
-                            color: 'var(--color-text-primary)',
+                            color: 'var(--nx-text-bright)',
+                            fontFamily: 'var(--nx-font-body)',
                             fontWeight: 600,
                             fontSize: '1rem',
+                            letterSpacing: '0.03em',
                             marginBottom: '0.5rem'
                         }}>
                             Locked Duration ({quarantineMode.hardLockDuration} minutes)
                         </h3>
                         <p style={{
-                            color: 'var(--color-text-secondary)',
+                            color: 'var(--nx-text-dim)',
+                            fontFamily: 'var(--nx-font-body)',
                             fontSize: '0.875rem',
+                            letterSpacing: '0.02em',
                             marginBottom: '1rem'
                         }}>
                             Your browser will be placed in quarantine mode for {quarantineMode.hardLockDuration} minutes after {quarantineMode.maxAttempts} attempts. During quarantine mode, no login attempts can be made.
@@ -175,11 +179,13 @@ export function QuarantineSettings({ settings, onSave, onShowMessage }: Quaranti
                         <div style={{
                             marginTop: '1.5rem',
                             paddingTop: '1.5rem',
-                            borderTop: '1px solid var(--color-border)'
+                            borderTop: '1px solid var(--nx-border)'
                         }}>
                             <p style={{
-                                color: 'var(--color-text-secondary)',
+                                color: 'var(--nx-text-dim)',
+                                fontFamily: 'var(--nx-font-body)',
                                 fontSize: '0.875rem',
+                                letterSpacing: '0.02em',
                                 marginBottom: '1rem'
                             }}>
                                 Data to clear:
@@ -216,11 +222,13 @@ export function QuarantineSettings({ settings, onSave, onShowMessage }: Quaranti
                             <div style={{
                                 marginTop: '1rem',
                                 padding: '0.75rem 1rem',
-                                background: 'rgba(239, 68, 68, 0.1)',
-                                border: '1px solid rgba(239, 68, 68, 0.2)',
-                                borderRadius: '8px',
-                                color: '#fca5a5',
-                                fontSize: '0.875rem'
+                                background: 'rgba(255, 51, 102, 0.08)',
+                                border: '1px solid rgba(255, 51, 102, 0.15)',
+                                borderRadius: '10px',
+                                color: 'var(--nx-error)',
+                                fontFamily: 'var(--nx-font-body)',
+                                fontSize: '0.875rem',
+                                letterSpacing: '0.02em',
                             }}>
                                 ⚠️ <strong>Warning:</strong> Clearing data is irreversible.
                             </div>

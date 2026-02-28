@@ -1,5 +1,5 @@
 // ============================================
-// Password Settings Section (Futuristic Design)
+// Password Settings Section (NEXUS PROTOCOL)
 // ============================================
 
 import { useState } from 'react';
@@ -96,8 +96,10 @@ export function PasswordSettings({ settings, onSave, onShowMessage }: PasswordSe
                 title={hasPassword ? 'Change Password' : 'Set Password'}
             >
                 <p style={{
-                    color: 'var(--color-text-secondary)',
+                    color: 'var(--nx-text-dim)',
+                    fontFamily: 'var(--nx-font-body)',
                     fontSize: '0.875rem',
+                    letterSpacing: '0.02em',
                     marginBottom: '1.5rem'
                 }}>
                     {hasPassword
@@ -145,7 +147,8 @@ export function PasswordSettings({ settings, onSave, onShowMessage }: PasswordSe
                 <div style={{
                     position: 'fixed',
                     inset: 0,
-                    background: 'rgba(0, 0, 0, 0.85)',
+                    background: 'rgba(3, 0, 20, 0.92)',
+                    backdropFilter: 'blur(20px)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -153,52 +156,66 @@ export function PasswordSettings({ settings, onSave, onShowMessage }: PasswordSe
                     padding: '1rem'
                 }}>
                     <div style={{
-                        background: 'var(--color-bg-card)',
+                        background: 'var(--nx-glass)',
+                        backdropFilter: 'blur(20px)',
                         borderRadius: '16px',
                         padding: '2rem',
                         maxWidth: '450px',
                         width: '100%',
-                        border: '1px solid var(--color-border)'
+                        border: '1px solid var(--nx-glass-border)',
+                        boxShadow: '0 0 40px rgba(0, 240, 255, 0.08)',
+                        animation: 'fade-in-up 0.4s ease both',
                     }}>
                         <h2 style={{
-                            fontSize: '1.25rem',
+                            fontFamily: 'var(--nx-font-display)',
+                            fontSize: '1rem',
                             fontWeight: 700,
+                            letterSpacing: '0.1em',
+                            textTransform: 'uppercase' as const,
                             marginBottom: '1rem',
-                            color: 'var(--color-success)'
+                            color: 'var(--nx-success)',
+                            textShadow: '0 0 10px var(--nx-success-glow)',
                         }}>
-                            ✓ Password {hasPassword ? 'Changed' : 'Set'} Successfully!
+                            ◆ Password {hasPassword ? 'Changed' : 'Set'} Successfully
                         </h2>
                         <p style={{
-                            color: 'var(--color-text-secondary)',
+                            color: 'var(--nx-text-dim)',
+                            fontFamily: 'var(--nx-font-body)',
                             marginBottom: '1.5rem',
                             fontSize: '0.9375rem',
-                            lineHeight: '1.6'
+                            lineHeight: '1.6',
+                            letterSpacing: '0.02em',
                         }}>
                             Save this recovery code in a safe place. You'll need it if you forget your password.
                         </p>
                         <div style={{
-                            background: 'var(--color-bg-dark)',
+                            background: 'rgba(0, 240, 255, 0.04)',
                             padding: '1.5rem',
                             borderRadius: '12px',
                             textAlign: 'center',
                             marginBottom: '1.5rem',
-                            border: '1px solid var(--color-border)'
+                            border: '1px solid rgba(0, 240, 255, 0.15)',
+                            boxShadow: '0 0 20px rgba(0, 240, 255, 0.05)',
                         }}>
                             <code style={{
                                 fontSize: '1.5rem',
-                                fontFamily: 'Monaco, Consolas, monospace',
-                                color: '#fbbf24',
-                                letterSpacing: '0.1em',
-                                userSelect: 'all'
+                                fontFamily: 'var(--nx-font-mono)',
+                                color: 'var(--nx-cyan)',
+                                letterSpacing: '0.15em',
+                                userSelect: 'all',
+                                textShadow: '0 0 10px var(--nx-cyan-glow)',
                             }}>
                                 {recoveryCode}
                             </code>
                         </div>
                         <p style={{
                             fontSize: '0.875rem',
-                            color: '#f87171',
+                            fontFamily: 'var(--nx-font-body)',
+                            color: 'var(--nx-error)',
+                            textShadow: '0 0 6px var(--nx-error-glow)',
                             marginBottom: '1.5rem',
-                            textAlign: 'center'
+                            textAlign: 'center',
+                            letterSpacing: '0.03em',
                         }}>
                             ⚠️ This code will only be shown once!
                         </p>

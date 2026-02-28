@@ -124,8 +124,16 @@ export default function LockScreen() {
 
     return (
         <div className="lockscreen-container">
-            {/* Shield Icon with Keyhole */}
-            <div className="shield-icon">
+            {/* Floating Ambient Orbs */}
+            <div className="orb orb--cyan" style={{ width: 300, height: 300, top: '-5%', left: '10%' }} />
+            <div className="orb orb--magenta" style={{ width: 250, height: 250, bottom: '5%', right: '5%' }} />
+            <div className="orb orb--pink" style={{ width: 200, height: 200, top: '40%', right: '25%' }} />
+
+            {/* Subtle Scan-line Overlay */}
+            <div className="scan-overlay" />
+
+            {/* Holographic Lock Emblem */}
+            <div className="shield-icon" style={{ animationDelay: '0s' }}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                     {/* Shield shape */}
                     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
@@ -143,14 +151,12 @@ export default function LockScreen() {
 
             {/* Error/Warning Messages */}
             {failedAttempts > 0 && !isHardLocked && (
-                <div style={{
-                    background: 'rgba(239, 68, 68, 0.15)',
-                    border: '1px solid rgba(239, 68, 68, 0.3)',
-                    borderRadius: '8px',
-                    padding: '0.75rem 1.5rem',
+                <div className="nx-alert nx-alert--error" style={{
                     marginBottom: '1.5rem',
-                    color: '#f87171',
-                    fontSize: '0.875rem'
+                    maxWidth: 400,
+                    width: '100%',
+                    textAlign: 'center',
+                    zIndex: 2,
                 }}>
                     Failed attempts: {failedAttempts}
                     {maxAttempts && ` / ${maxAttempts}`}
@@ -158,15 +164,13 @@ export default function LockScreen() {
             )}
 
             {isHardLocked && (
-                <div style={{
-                    background: 'rgba(239, 68, 68, 0.2)',
-                    border: '1px solid rgba(239, 68, 68, 0.4)',
-                    borderRadius: '8px',
-                    padding: '1rem 1.5rem',
+                <div className="nx-alert nx-alert--error" style={{
                     marginBottom: '1.5rem',
-                    color: '#fca5a5',
-                    fontSize: '0.875rem',
-                    textAlign: 'center'
+                    maxWidth: 400,
+                    width: '100%',
+                    textAlign: 'center',
+                    zIndex: 2,
+                    fontWeight: 600,
                 }}>
                     ⚠️ Too many failed attempts. Try again in {hardLockRemaining} minute(s).
                 </div>
@@ -228,10 +232,12 @@ export default function LockScreen() {
                         {/* Error Message */}
                         {error && (
                             <div style={{
-                                color: '#f87171',
+                                color: 'var(--nx-error)',
                                 fontSize: '0.875rem',
                                 textAlign: 'center',
-                                marginTop: '0.75rem'
+                                marginTop: '0.75rem',
+                                fontFamily: 'var(--nx-font-body)',
+                                textShadow: '0 0 8px var(--nx-error-glow)',
                             }}>
                                 {error}
                             </div>
@@ -245,16 +251,21 @@ export default function LockScreen() {
                         >
                             {unlocking ? (
                                 <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-                                    <div className="spinner" style={{ width: 20, height: 20 }}></div>
-                                    Unlocking...
+                                    <div className="spinner" style={{ width: 18, height: 18 }}></div>
+                                    Authenticating...
                                 </span>
                             ) : (
-                                'Log In'
+                                'Authenticate'
                             )}
                         </button>
                     </form>
                 </div>
             )}
+
+            {/* HUD Footer */}
+            <div className="hud-footer">
+                NEXUS PROTOCOL v{chrome.runtime.getManifest().version}
+            </div>
         </div>
     );
 }

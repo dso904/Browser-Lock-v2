@@ -1,5 +1,5 @@
 // ============================================
-// Browser Lock - Options Page (Futuristic Design)
+// Browser Lock - Options Page (NEXUS PROTOCOL)
 // ============================================
 
 import { useState, useEffect } from 'react';
@@ -118,7 +118,12 @@ export default function OptionsPage() {
 
     if (!settings) {
         return (
-            <div className="settings-layout" style={{ alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+            <div className="settings-layout" style={{
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--nx-text)',
+                fontFamily: 'var(--nx-font-body)',
+            }}>
                 <p>Failed to load settings. Please refresh the page.</p>
             </div>
         );
@@ -147,7 +152,7 @@ export default function OptionsPage() {
                     </button>
                 </nav>
                 <div className="sidebar-version">
-                    v{chrome.runtime.getManifest().version}
+                    NEXUS v{chrome.runtime.getManifest().version}
                 </div>
             </aside>
 
@@ -160,12 +165,25 @@ export default function OptionsPage() {
                         onClick={() => window.close()}
                         style={{
                             background: 'none',
-                            border: 'none',
-                            color: 'var(--color-text-secondary)',
+                            border: '1px solid var(--nx-border)',
+                            color: 'var(--nx-text-dim)',
                             cursor: 'pointer',
-                            padding: '0.5rem',
+                            padding: '0.4rem',
                             borderRadius: '8px',
-                            transition: 'all 0.2s'
+                            transition: 'all 0.3s',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.borderColor = 'var(--nx-error)';
+                            e.currentTarget.style.color = 'var(--nx-error)';
+                            e.currentTarget.style.boxShadow = '0 0 10px var(--nx-error-glow)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.borderColor = 'var(--nx-border)';
+                            e.currentTarget.style.color = 'var(--nx-text-dim)';
+                            e.currentTarget.style.boxShadow = 'none';
                         }}
                     >
                         <CloseIcon />
@@ -176,23 +194,24 @@ export default function OptionsPage() {
                 <div className="settings-content">
                     {/* Message Toast */}
                     {message && (
-                        <div
+                        <div className={`nx-alert ${message.type === 'success' ? 'nx-alert--success' : 'nx-alert--error'}`}
                             style={{
                                 marginBottom: '1rem',
-                                padding: '1rem',
-                                borderRadius: '8px',
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '0.75rem',
-                                background: message.type === 'success'
-                                    ? 'rgba(16, 185, 129, 0.15)'
-                                    : 'rgba(239, 68, 68, 0.15)',
-                                border: `1px solid ${message.type === 'success' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
-                                color: message.type === 'success' ? '#10b981' : '#f87171'
+                                animation: 'fade-in-up 0.3s ease both',
                             }}
                         >
-                            {message.type === 'success' ? '✓' : '✕'}
-                            <span>{message.text}</span>
+                            <span style={{
+                                fontFamily: 'var(--nx-font-mono)',
+                                fontSize: '1rem',
+                            }}>
+                                {message.type === 'success' ? '✓' : '✕'}
+                            </span>
+                            <span style={{ fontFamily: 'var(--nx-font-body)', letterSpacing: '0.03em' }}>
+                                {message.text}
+                            </span>
                         </div>
                     )}
 
@@ -200,8 +219,8 @@ export default function OptionsPage() {
                         <>
                             {/* Master Toggle */}
                             <div className="section-card" style={{
-                                background: 'linear-gradient(135deg, rgba(88, 101, 242, 0.1) 0%, rgba(124, 58, 237, 0.1) 100%)',
-                                borderColor: 'rgba(88, 101, 242, 0.3)'
+                                background: 'linear-gradient(135deg, rgba(0, 240, 255, 0.06) 0%, rgba(180, 0, 255, 0.06) 50%, rgba(255, 45, 124, 0.03) 100%)',
+                                borderColor: 'rgba(0, 240, 255, 0.15)',
                             }}>
                                 <div className="section-header">
                                     <div className="section-title">
@@ -218,9 +237,18 @@ export default function OptionsPage() {
                                 <p className="section-description">
                                     {settings.active
                                         ? hasPassword
-                                            ? '✓ Protection active'
-                                            : '⚠ Set a password to enable protection'
-                                        : 'Protection disabled'}
+                                            ? <>
+                                                <span style={{ color: 'var(--nx-success)' }}>◆</span>
+                                                {' '}Protection protocol active
+                                            </>
+                                            : <>
+                                                <span style={{ color: 'var(--nx-warning)' }}>◆</span>
+                                                {' '}Set a password to enable protection
+                                            </>
+                                        : <>
+                                            <span style={{ color: 'var(--nx-text-muted)' }}>◆</span>
+                                            {' '}Protection protocol disabled
+                                        </>}
                                 </p>
                             </div>
 

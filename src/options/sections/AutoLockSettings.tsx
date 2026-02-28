@@ -1,5 +1,5 @@
 // ============================================
-// Auto Lock Settings Section (Futuristic Design)
+// Auto Lock Settings Section (NEXUS PROTOCOL)
 // ============================================
 
 import { SectionCard, Select, TextInput, YesNoToggle } from '../components';
@@ -89,8 +89,10 @@ export function AutoLockSettings({ settings, onSave }: AutoLockSettingsProps) {
                             onChange={handleStartStateChange}
                         />
                         <p style={{
-                            color: 'var(--color-text-secondary)',
+                            color: 'var(--nx-text-dim)',
+                            fontFamily: 'var(--nx-font-body)',
                             fontSize: '0.8125rem',
+                            letterSpacing: '0.02em',
                             marginTop: '-0.5rem'
                         }}>
                             In what state should the browser be started when auto lock is enabled.
