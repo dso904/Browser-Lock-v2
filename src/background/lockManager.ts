@@ -6,6 +6,9 @@
 //
 // IMPORTANT: This module includes safeguards against the profile-switching
 // issue where lock windows would open/close rapidly.
+//
+// NOTE: State persistence is handled by state.ts via chrome.storage.session.
+// The lockScreenWindowId is set there and survives SW restarts.
 
 import { getSettings, getLockState, saveLockState, resetLockState } from '../shared/storage';
 import { verifyPassword, verifyRecoveryCode } from '../shared/crypto';

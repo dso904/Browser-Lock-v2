@@ -10,6 +10,7 @@ import { WindowGuard, pauseWindowGuard } from './windowGuard';
 import { IdleHandler } from './idleHandler';
 import { ContextMenu } from './contextMenu';
 import { MessageHandler } from './messageHandler';
+import { State } from './state';
 
 console.log('[BrowserLock] Service Worker starting...');
 
@@ -21,6 +22,10 @@ async function bootstrap(): Promise<void> {
     console.log('[BrowserLock] Bootstrapping...');
 
     try {
+        // CRITICAL: Rehydrate shared state from session storage FIRST
+        // This recovers lockScreenWindowId, guard pause state, etc. after SW restart
+        await State.initialize();
+
         // Load current state
         const settings = await getSettings();
         const lockState = await getLockState();

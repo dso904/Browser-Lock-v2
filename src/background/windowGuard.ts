@@ -1,34 +1,35 @@
 // ============================================
-// Browser Lock - Window Guard
+// Browser Lock - Window Guard (Hardened)
 // ============================================
 // Prevents users from opening new windows/tabs while locked.
 // Enforces the lock by:
-// 1. Intercepting new tab creation
+// 1. Immediately removing unauthorized tabs (no debounce)
 // 2. Intercepting new window creation
 // 3. Reopening lock screen if it's closed
+// 4. Graceful shutdown cascade via isShuttingDown flag
 //
-// IMPORTANT: This module includes robust debouncing and rate limiting
-// to prevent the profile-switching issue where events fire rapidly.
+// SECURITY FIXES:
+// - Removed exploitable 200ms debounce on tab creation
+// - Per-ID re-entry tracking replaces global boolean mutex
+// - Shutdown flag prevents recursive onRemoved cascade
 
 import { getLockState, saveLockState } from '../shared/storage';
 import { LockManager } from './lockManager';
 import { State, getLockScreenWindowId } from './state';
 
-// Debounce state - use timestamps instead of boolean flags for robustness
-let lastTabEventTime = 0;
+// ── Per-ID re-entry tracking ─────────────────
+// Instead of global boolean mutexes, track which specific IDs are being processed.
+// This prevents re-entry for the SAME event but allows concurrent handling of DIFFERENT events.
+const tabsBeingRemoved = new Set<number>();
+const windowsBeingProcessed = new Set<number>();
+
+// Window creation event still gets a short debounce since chrome fires
+// rapid creation events during profile switch. Reduced from 200ms to 50ms.
 let lastWindowCreatedTime = 0;
-let lastWindowRemovedTime = 0;
+const WINDOW_DEBOUNCE_MS = 50;
 
-// Minimum time between processing events (ms)
-const DEBOUNCE_MS = 200;
+// NOTE: Pause state and shutdown flag are managed in state.ts
 
-// Track if we're currently processing to prevent re-entry
-let isProcessingTabEvent = false;
-let isProcessingWindowCreated = false;
-let isProcessingWindowRemoved = false;
-
-// NOTE: Pause state is now managed in state.ts to avoid circular dependency
-// Export these for backwards compatibility with index.ts
 export function pauseWindowGuard(): void {
     State.pauseGuard();
 }
@@ -43,16 +44,9 @@ export function resumeWindowGuard(): void {
 export function registerWindowGuard(): void {
     console.log('[WindowGuard] Registering listeners...');
 
-    // Tab creation listener
     chrome.tabs.onCreated.addListener(handleTabCreated);
-
-    // Window creation listener
     chrome.windows.onCreated.addListener(handleWindowCreated);
-
-    // Window removal listener (detect if lock screen is closed)
     chrome.windows.onRemoved.addListener(handleWindowRemoved);
-
-    // Window focus change listener (prevent restoring minimized windows while locked)
     chrome.windows.onFocusChanged.addListener(handleWindowFocusChanged);
 
     console.log('[WindowGuard] Listeners registered');
@@ -70,122 +64,95 @@ export function unregisterWindowGuard(): void {
 }
 
 /**
- * Handle new tab creation
- * Close tabs created in non-lock-screen windows while locked
+ * Handle new tab creation — HARDENED (no debounce)
+ *
+ * Every single unauthorized tab gets removed immediately.
+ * No debounce means an attacker cannot slip tabs through a timing window.
  */
 async function handleTabCreated(tab: chrome.tabs.Tab): Promise<void> {
+    // ── Shutdown check (Fix 3) — absolute first check ──
+    if (State.isShuttingDown()) return;
+
     // Skip if window guard is paused (during lock/unlock operations)
-    if (State.isGuardPaused()) {
-        return;
-    }
+    if (State.isGuardPaused()) return;
 
-    const now = Date.now();
+    // Skip if no valid tab ID
+    if (!tab.id || tab.id <= 0) return;
 
-    // Debounce - skip if too soon after last event
-    if (now - lastTabEventTime < DEBOUNCE_MS) {
-        return;
-    }
-
-    // Prevent re-entry
-    if (isProcessingTabEvent) {
-        return;
-    }
-
-    lastTabEventTime = now;
-    isProcessingTabEvent = true;
+    // Per-ID re-entry guard (Fix 2) — prevents double-processing the same tab
+    if (tabsBeingRemoved.has(tab.id)) return;
 
     try {
         const lockState = await getLockState();
 
-        if (!lockState.locked) {
-            return; // Not locked, allow tab
-        }
+        if (!lockState.locked) return; // Not locked, allow tab
 
         const lockWindowId = lockState.popup?.windowId || getLockScreenWindowId();
 
-        // SAFETY: If locked but no lock window ID, lock is still being set up
-        // Skip handling to prevent interference with lock initialization
+        // If locked but no lock window ID, lock is still being set up — skip
         if (!lockWindowId) {
             console.log('[WindowGuard] Locked but no lock window ID yet, skipping tab handling');
             return;
         }
 
         // If tab is in the lock screen window, allow it
-        if (tab.windowId === lockWindowId) {
-            return;
+        if (tab.windowId === lockWindowId) return;
+
+        // ── IMMEDIATELY remove the unauthorized tab ──
+        tabsBeingRemoved.add(tab.id);
+        console.log(`[WindowGuard] Blocking new tab (id: ${tab.id}) while locked`);
+
+        try {
+            await chrome.tabs.remove(tab.id);
+        } catch {
+            // Tab might already be closed or protected — expected
+        } finally {
+            tabsBeingRemoved.delete(tab.id);
         }
 
-        // Close the unauthorized tab
-        if (tab.id && tab.id > 0) {
-            console.log(`[WindowGuard] Blocking new tab (id: ${tab.id}) while locked`);
-            try {
-                await chrome.tabs.remove(tab.id);
-            } catch {
-                // Tab might already be closed or protected
-                // This is expected and not an error
-            }
-        }
-
-        // Ensure lock screen is visible (rate-limited internally)
+        // Ensure lock screen is visible (rate-limited internally by LockManager)
         await LockManager.ensureLockScreenVisible();
     } catch (error) {
         console.error('[WindowGuard] Error handling tab creation:', error);
-    } finally {
-        isProcessingTabEvent = false;
     }
 }
 
 /**
  * Handle new window creation
- * Show notification and focus lock screen
+ * Show notification and focus lock screen.
+ * Keeps a short debounce (50ms) since Chrome fires rapid window events during profile switch.
  */
 async function handleWindowCreated(window: chrome.windows.Window): Promise<void> {
-    // Skip if window guard is paused (during lock/unlock operations)
-    if (State.isGuardPaused()) {
-        return;
-    }
+    // ── Shutdown check (Fix 3) ──
+    if (State.isShuttingDown()) return;
 
+    if (State.isGuardPaused()) return;
+
+    // Short debounce for window creation only (profile switch artifact)
     const now = Date.now();
-
-    // Debounce
-    if (now - lastWindowCreatedTime < DEBOUNCE_MS) {
-        return;
-    }
-
-    // Prevent re-entry
-    if (isProcessingWindowCreated) {
-        return;
-    }
-
+    if (now - lastWindowCreatedTime < WINDOW_DEBOUNCE_MS) return;
     lastWindowCreatedTime = now;
-    isProcessingWindowCreated = true;
+
+    if (!window.id || window.id <= 0) return;
+
+    // Per-ID re-entry guard
+    if (windowsBeingProcessed.has(window.id)) return;
+    windowsBeingProcessed.add(window.id);
 
     try {
         const lockState = await getLockState();
 
-        if (!lockState.locked) {
-            return; // Not locked, allow window
-        }
+        if (!lockState.locked) return; // Not locked, allow window
 
-        // Check both storage and in-memory for lock screen window ID
         const lockWindowId = lockState.popup?.windowId || getLockScreenWindowId();
 
-        // SAFETY: If locked but no lock window ID, lock is still being set up
-        // Skip handling to prevent interference with lock initialization
         if (!lockWindowId) {
             console.log('[WindowGuard] Locked but no lock window ID yet, skipping window handling');
             return;
         }
 
         // If this is the lock screen window, allow it
-        if (window.id === lockWindowId) {
-            return;
-        }
-
-        // If no ID or invalid window, skip
-        if (!window.id || window.id <= 0) {
-            return;
-        }
+        if (window.id === lockWindowId) return;
 
         console.log(`[WindowGuard] New window detected while locked (id: ${window.id})`);
 
@@ -209,73 +176,68 @@ async function handleWindowCreated(window: chrome.windows.Window): Promise<void>
     } catch (error) {
         console.error('[WindowGuard] Error handling window creation:', error);
     } finally {
-        isProcessingWindowCreated = false;
+        if (window.id) windowsBeingProcessed.delete(window.id);
     }
 }
 
 /**
- * Handle window removal
- * EXIT STRATEGY: If the Lock Screen is closed by the user, we treat it as a "Quit" intent.
- * We immediately close all background/minimized windows to exit Chrome completely.
+ * Handle window removal — EXIT STRATEGY with cascade prevention (Fix 3)
+ *
+ * If the Lock Screen is closed by the user, we treat it as a "Quit" intent.
+ * We set isShuttingDown=true BEFORE the removal loop so that subsequent
+ * onRemoved events fired by our own chrome.windows.remove() calls
+ * are immediately short-circuited.
  */
 async function handleWindowRemoved(windowId: number): Promise<void> {
+    // ── Shutdown check — ABSOLUTE FIRST CHECK (Fix 3) ──
+    // If a shutdown is already in progress, this event was fired by our own
+    // removal loop. Do NOT process it — immediately return.
+    if (State.isShuttingDown()) return;
+
     // Skip if window guard is paused (during lock/unlock operations)
-    if (State.isGuardPaused()) {
-        return;
-    }
+    if (State.isGuardPaused()) return;
 
-    const now = Date.now();
-
-    // Debounce
-    if (now - lastWindowRemovedTime < DEBOUNCE_MS) {
-        return;
-    }
-
-    // Prevent re-entry
-    if (isProcessingWindowRemoved) {
-        return;
-    }
-
-    lastWindowRemovedTime = now;
-    isProcessingWindowRemoved = true;
+    // Per-ID re-entry guard
+    if (windowsBeingProcessed.has(windowId)) return;
+    windowsBeingProcessed.add(windowId);
 
     try {
         const lockState = await getLockState();
 
-        if (!lockState.locked) {
-            return; // Not locked, nothing to do
-        }
+        if (!lockState.locked) return; // Not locked, nothing to do
 
-        // Check both storage and in-memory for lock screen window ID
         const lockWindowId = lockState.popup?.windowId || getLockScreenWindowId();
 
         // If we don't know the lock window ID, we can't make a decision
-        if (!lockWindowId) {
-            return;
-        }
+        if (!lockWindowId) return;
 
-        // CRITICAL FIX: Check if the closed window was the Lock Screen
+        // Check if the closed window was the Lock Screen
         if (lockWindowId === windowId) {
             console.log('[WindowGuard] Lock screen closed by user. Initiating Application Exit.');
 
-            // 1. Clear the lock screen reference so we don't try to focus it
+            // ── SET SHUTDOWN FLAG FIRST (Fix 3) ──
+            // This prevents the recursive cascade: every chrome.windows.remove()
+            // below fires another onRemoved event, which will hit the
+            // isShuttingDown() check at the top and immediately return.
+            State.setShuttingDown(true);
+
+            // Clear the lock screen reference
             State.setLockScreenWindowId(null);
             await saveLockState({ popup: null });
 
-            // 2. FORCE EXIT: Close all other windows (the minimized session)
-            // This ensures Chrome shuts down completely instead of reopening the lock screen
+            // FORCE EXIT: Close all other windows
             try {
                 const allWindows = await chrome.windows.getAll();
-                for (const win of allWindows) {
-                    if (win.id) {
-                        try {
-                            console.log(`[WindowGuard] Closing background window ${win.id} to exit...`);
-                            await chrome.windows.remove(win.id);
-                        } catch (e) {
+                // Use Promise.all for parallel removal — faster exit
+                const removePromises = allWindows
+                    .filter(win => win.id && win.id !== windowId)
+                    .map(win => {
+                        console.log(`[WindowGuard] Closing background window ${win.id} to exit...`);
+                        return chrome.windows.remove(win.id!).catch(() => {
                             // Ignore errors (window might already be closing)
-                        }
-                    }
-                }
+                        });
+                    });
+                await Promise.all(removePromises);
             } catch (error) {
                 console.error('[WindowGuard] Error during exit sequence:', error);
             }
@@ -286,7 +248,7 @@ async function handleWindowRemoved(windowId: number): Promise<void> {
     } catch (error) {
         console.error('[WindowGuard] Error handling window removal:', error);
     } finally {
-        isProcessingWindowRemoved = false;
+        windowsBeingProcessed.delete(windowId);
     }
 }
 
@@ -296,51 +258,38 @@ async function handleWindowRemoved(windowId: number): Promise<void> {
  * re-minimize it and focus the lock screen
  */
 async function handleWindowFocusChanged(windowId: number): Promise<void> {
-    // Skip if window guard is paused
-    if (State.isGuardPaused()) {
-        return;
-    }
+    // ── Shutdown check (Fix 3) ──
+    if (State.isShuttingDown()) return;
 
-    // Skip if no window focused (windowId = -1 means no chrome window focused)
-    if (windowId === chrome.windows.WINDOW_ID_NONE) {
-        return;
-    }
+    if (State.isGuardPaused()) return;
+
+    // Skip if no window focused (windowId = -1)
+    if (windowId === chrome.windows.WINDOW_ID_NONE) return;
 
     try {
         const lockState = await getLockState();
 
-        if (!lockState.locked) {
-            return; // Not locked, allow focus change
-        }
+        if (!lockState.locked) return;
 
         const lockWindowId = lockState.popup?.windowId || getLockScreenWindowId();
 
-        // SAFETY: If locked but no lock window ID, skip
-        if (!lockWindowId) {
-            return;
-        }
+        if (!lockWindowId) return;
 
         // If user focused the lock screen, that's fine
-        if (windowId === lockWindowId) {
-            return;
-        }
+        if (windowId === lockWindowId) return;
 
         // User tried to focus a non-lock-screen window while locked
-        // Re-minimize it and focus the lock screen
         console.log(`[WindowGuard] Blocking focus on window ${windowId} while locked`);
 
         try {
-            // Re-minimize the window
             await chrome.windows.update(windowId, { state: 'minimized' });
         } catch {
             // Window might be gone
         }
 
         try {
-            // Focus the lock screen
             await chrome.windows.update(lockWindowId, { focused: true });
         } catch {
-            // Lock screen might be gone, try to reopen
             await LockManager.ensureLockScreenVisible();
         }
     } catch (error) {
